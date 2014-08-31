@@ -1,0 +1,9 @@
+{
+  "infect": "MazeDigger/Assets",
+  "with": 
+  {
+    "invisibledrygoods/RequireUnity": "HEAD",
+    "invisibledrygoods/GivenWhenUnity": "HEAD",
+    "invisibledrygoods/Listless": "HEAD"
+  }
+}
