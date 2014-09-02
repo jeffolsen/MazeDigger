@@ -3,22 +3,22 @@ using System.Collections.Generic;
 using System.Linq;
 using Require;
 using Listless;
+using System;
+using Tap;
 
 public class DigsAMaze : MonoBehaviour
 {
     public LayerMask wallLayers;
-    public Transform floorPrefab;
-    public Transform deadEndPrefab;
-    public List<Vector3> directions;
+    public List<Transform> directionMarkers;
 
-    int floorLayer;
     Stack<Vector3> trail = new Stack<Vector3>();
     bool backtracking;
 
+    HashSet<GameObject> alreadyDugMarkers = new HashSet<GameObject>();
+
     void Start()
     {
-        floorLayer = 1 << floorPrefab.gameObject.layer;
-        (Instantiate(floorPrefab, transform.position, Quaternion.identity) as Transform).parent = transform;
+        List<Vector3> directions = directionMarkers.Select(_ => _.position - transform.position).ToList();
         trail.Push(transform.position);
 
         while (trail.Count > 0)
@@ -28,19 +28,30 @@ public class DigsAMaze : MonoBehaviour
 
             if (possibleDirections.Count > 0)
             {
+                if (!backtracking)
+                {
+                    EachZone(cursor, _ => _.waitForHallway.Happened(cursor));
+                }
+
                 Dig(cursor, possibleDirections.Random());
                 backtracking = false;
             }
             else
             {
-                if (!backtracking && deadEndPrefab != null)
+                if (!backtracking)
                 {
-                    (Instantiate(deadEndPrefab, cursor, Quaternion.identity) as Transform).parent = transform;
+                    EachZone(cursor, _ => _.waitForDeadEnd.Happened(cursor));
+                    // (Instantiate(deadEndPrefab, cursor, transform.rotation) as Transform).parent = transform;
                 }
 
                 backtracking = true;
                 trail.Pop();
             }
+        }
+
+        foreach (GameObject marker in alreadyDugMarkers)
+        {
+            Destroy(marker.gameObject);
         }
     }
 
@@ -51,17 +62,52 @@ public class DigsAMaze : MonoBehaviour
             Destroy(hit.collider.gameObject);
         }
 
-        (Instantiate(floorPrefab, start + direction, Quaternion.identity) as Transform).parent = transform;
+        // if (UnityEngine.Random.Range(0.0f, 1.0f) < dropRate)
+        // {
+        //     (Instantiate(randomPropPrefab, start + direction, transform.rotation) as Transform).parent = transform;
+        // }
+
+        GameObject marker = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+        alreadyDugMarkers.Add(marker);
+        marker.transform.position = start + direction;
+        marker.transform.localScale = Vector3.one * direction.magnitude / 3.0f;
+        marker.AddComponent<AlreadyDug>();
+
+        EachZone(start + direction, _ => _.waitForRoom.Happened(start + direction));
+
+        // (Instantiate(floorPrefab, start + direction, transform.rotation) as Transform).parent = transform;
+
         trail.Push(start + direction);
     }
 
     bool Dug(Vector3 position)
     {
-        return Physics.CheckSphere(position, 0.1f, floorLayer);
+        foreach (Collider collider in Physics.OverlapSphere(position, 0.1f))
+        {
+            if (collider.GetComponent<AlreadyDug>() != null)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void EachZone(Vector3 position, Action<ReceivesMazeEvents> act)
+    {
+        foreach (Collider collider in Physics.OverlapSphere(position, 0.1f))
+        {
+            collider.GetComponent<ReceivesMazeEvents>().AndAnd(_ => act.Invoke(_));
+        }
     }
 
     void OnDrawGizmos()
     {
-        Gizmos.DrawIcon(transform.position, "maze", true);
+        Gizmos.DrawIcon(transform.position, "packages/jeffolsen/MazeDigger/maze", true);
+
+        foreach (Transform marker in directionMarkers)
+        {
+            Gizmos.DrawLine(transform.position, marker.position);
+            Gizmos.DrawCube(marker.position, Vector3.one * 0.1f);
+        }
     }
 }
