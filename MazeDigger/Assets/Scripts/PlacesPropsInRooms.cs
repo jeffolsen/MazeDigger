@@ -12,11 +12,25 @@ public class PlacesPropsInRooms : MonoBehaviour
         public Transform prefab;
     }
 
+    public class DropData
+    {
+        public Transform prefab;
+        public Vector3 position;
+
+        public DropData(Transform prefab, Vector3 position)
+        {
+            this.prefab = prefab;
+            this.position = position;
+        }
+    }
+
     public enum DropLocation { Anywhere, Hallway, DeadEnd }
 
     public DropLocation dropLocation;
 
     public List<DropTableItem> dropTable;
+
+    List<DropData> dropHistory = new List<DropData>();
 
     void Start()
     {
@@ -24,6 +38,7 @@ public class PlacesPropsInRooms : MonoBehaviour
 
         ReceivesMazeEvents mazeEvents = transform.Require<ReceivesMazeEvents>();
         WaitFor<Vector3> waitFor = mazeEvents.waitForRoom;
+        WaitFor<Transform> waitForRepop = mazeEvents.waitForRepop;
 
         if (dropLocation == DropLocation.Hallway)
         {
@@ -40,8 +55,20 @@ public class PlacesPropsInRooms : MonoBehaviour
             {
                 if (Random.Range(0.0f, 1.0f) < drop.rate)
                 {
-                    (Instantiate(drop.prefab, position, transform.rotation) as Transform).parent = transform;
+                    dropHistory.Add(new DropData(drop.prefab, position));
+                    Instantiate(drop.prefab, position, transform.rotation);
                     break;
+                }
+            }
+        });
+
+        waitForRepop.ThenAlways(prefab =>
+        {
+            foreach (DropData drop in dropHistory)
+            {
+                if (drop.prefab == prefab)
+                {
+                    Instantiate(drop.prefab, drop.position, transform.rotation);
                 }
             }
         });

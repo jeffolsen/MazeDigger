@@ -6,4 +6,5 @@ public class ReceivesMazeEvents : MonoBehaviour
     public WaitFor<Vector3> waitForRoom = new WaitFor<Vector3>();
     public WaitFor<Vector3> waitForDeadEnd = new WaitFor<Vector3>();
     public WaitFor<Vector3> waitForHallway = new WaitFor<Vector3>();
+    public WaitFor<Transform> waitForRepop = new WaitFor<Transform>();
 }
